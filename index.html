@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quiz de Bandeiras - Hard Mode</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        body {
+            background-color: #f0f2f5;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            background-color: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            width: 100%;
+            max-width: 500px;
+            text-align: center;
+            display: none;
+        }
+        #start-screen {
+            display: block;
+        }
+        h1, h2 {
+            color: #333;
+            margin-top: 0;
+        }
+        .leaderboard-box {
+            background: #f8f9fa;
+            border: 1px solid #ddd;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 20px;
+            text-align: left;
+        }
+        .leaderboard-box h3 {
+            margin-top: 0;
+            text-align: center;
+            color: #007bff;
+        }
+        ol {
+            padding-left: 20px;
+            margin-bottom: 0;
+            font-size: 1.1rem;
+        }
+        ol li {
+            padding: 5px 0;
+            border-bottom: 1px dashed #ccc;
+        }
+        ol li:last-child {
+            border-bottom: none;
+        }
+        .personal-record {
+            margin-top: 15px;
+            text-align: center;
+            font-weight: bold;
+            color: #28a745;
+        }
+        .main-btn {
+            background-color: #28a745;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            font-size: 1.2rem;
+            font-weight: bold;
+            border-radius: 8px;
+            cursor: pointer;
+            width: 100%;
+            transition: 0.2s;
+        }
+        .main-btn:hover {
+            background-color: #218838;
+        }
+        #status-bar {
+            display: flex;
+            justify-content: space-between;
+            font-size: 1.2rem;
+            font-weight: bold;
+            margin-bottom: 20px;
+            color: #333;
+        }
+        #score-display {
+            color: #007bff;
+        }
+        #flag-container img {
+            width: 100%;
+            height: 200px;
+            object-fit: contain;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            background-color: #f9f9f9;
+        }
+        #options {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+        .option-btn {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 15px;
+            font-size: 1rem;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        .option-btn:hover {
+            background-color: #0056b3;
+        }
+        .option-btn:disabled {
+            cursor: not-allowed;
+            opacity: 0.9;
+        }
+        .correct { background-color: #28a745 !important; }
+        .wrong { background-color: #dc3545 !important; }
+        .highlight { color: #dc3545; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+    <!-- Tela Inicial com Ranking -->
+    <div id="start-screen" class="container">
+        <h1>🌍 Quiz de Bandeiras</h1>
+        <p>Adivinhe os países! (Cuidado: as opções são parecidas!)</p>
+        
+        <div class="leaderboard-box">
+            <h3>🏆 Top 3 Global</h3>
+            <ol id="top3-list">
+                <li>Ainda não há recordes.</li>
+            </ol>
+            <div class="personal-record">
+                Seu Recorde: <span id="personal-record">0</span> acertos
+            </div>
+        </div>
+
+        <button class="main-btn" onclick="startGame()">▶ Jogar Agora</button>
+    </div>
+
+    <!-- Tela do Jogo -->
+    <div id="game-container" class="container">
+        <div id="status-bar">
+            <span>Rodada: <span id="counter">1/196</span></span>
+            <span id="score-display">⭐ 0</span>
+            <span id="lives">❤️❤️❤️</span>
+        </div>
+        
+        <div id="flag-container">
+            <img id="flag-image" src="" alt="Bandeira do País">
+        </div>
+        
+        <div id="options">
+            <button class="option-btn" onclick="checkAnswer(0)"></button>
+            <button class="option-btn" onclick="checkAnswer(1)"></button>
+            <button class="option-btn" onclick="checkAnswer(2)"></button>
+            <button class="option-btn" onclick="checkAnswer(3)"></button>
+        </div>
+    </div>
+
+    <!-- Tela de Fim de Jogo -->
+    <div id="game-over-screen" class="container">
+        <h2 id="end-title">Game Over</h2>
+        <p id="end-message">Você perdeu todas as vidas.</p>
+        <h3 class="highlight">Pontuação Final: <span id="final-score">0</span></h3>
+        
+        <div id="new-record-alert" style="display: none; color: #28a745; font-weight: bold; margin: 15px 0;">
+            🎉 Novo recorde para o Top 3! 🎉
+        </div>
+
+        <button class="main-btn" style="margin-top: 20px;" onclick="goToMenu()">Voltar ao Menu</button>
+    </div>
+
+    <script src="countries.js"></script>
+
+    <script>
+        let gameCountries = [];
+        let correctAnswerIndex = 0;
+        let currentQuestion = 0;
+        let score = 0;
+        let lives = 3;
+        const totalQuestions = 196;
+        let leaderboard = [];
+        let pRecord = 0;
+
+        // Carrega dados locais ao abrir a página
+        window.onload = () => {
+            loadLeaderboard();
+        };
+
+        function loadLeaderboard() {
+            leaderboard = JSON.parse(localStorage.getItem('flagQuizLeaderboard')) || [];
+            pRecord = parseInt(localStorage.getItem('flagQuizRecord')) || 0;
+            
+            document.getElementById('personal-record').innerText = pRecord;
+            
+            const top3List = document.getElementById('top3-list');
+            if (leaderboard.length === 0) {
+                top3List.innerHTML = "<li>Ainda não há recordes.</li>";
+            } else {
+                top3List.innerHTML = "";
+                leaderboard.slice(0, 3).forEach((entry, index) => {
+                    let li = document.createElement('li');
+                    li.innerText = `${entry.name} - ${entry.score} pts`;
+                    top3List.appendChild(li);
+                });
+            }
+        }
+
+        function saveScore(newScore) {
+            // Atualiza recorde pessoal
+            if (newScore > pRecord) {
+                pRecord = newScore;
+                localStorage.setItem('flagQuizRecord', pRecord);
+            }
+
+            // Verifica se entra no top 3
+            let isTop3 = false;
+            if (leaderboard.length < 3 || newScore > leaderboard[leaderboard.length - 1].score) {
+                isTop3 = true;
+                document.getElementById('new-record-alert').style.display = 'block';
+                
+                // Pede o nome (com pequeno atraso para renderizar a tela antes)
+                setTimeout(() => {
+                    let playerName = prompt("Parabéns! Você entrou para o Top 3! Qual o seu nome?");
+                    if (!playerName || playerName.trim() === "") playerName = "Anônimo";
+                    
+                    leaderboard.push({ name: playerName.trim(), score: newScore });
+                    // Ordena decrescente
+                    leaderboard.sort((a, b) => b.score - a.score);
+                    // Mantém apenas os 3 melhores
+                    leaderboard = leaderboard.slice(0, 3);
+                    
+                    localStorage.setItem('flagQuizLeaderboard', JSON.stringify(leaderboard));
+                    loadLeaderboard();
+                }, 500);
+            } else {
+                document.getElementById('new-record-alert').style.display = 'none';
+            }
+        }
+
+        function startGame() {
+            document.getElementById('start-screen').style.display = 'none';
+            document.getElementById('game-over-screen').style.display = 'none';
+            document.getElementById('game-container').style.display = 'block';
+
+            currentQuestion = 0;
+            score = 0;
+            lives = 3;
+            updateStatsDisplay();
+
+            let shuffled = shuffleArray([...allCountries]);
+            gameCountries = shuffled.slice(0, totalQuestions);
+
+            loadNextQuestion();
+        }
+
+        function loadNextQuestion() {
+            if (currentQuestion >= totalQuestions) {
+                endGame(true);
+                return;
+            }
+
+            document.getElementById('counter').innerText = `${currentQuestion + 1}/${totalQuestions}`;
+            const correctCountry = gameCountries[currentQuestion];
+            document.getElementById('flag-image').src = correctCountry.flag;
+
+            // LÓGICA DE DIFICULDADE: Buscar bandeiras similares
+            let options = [correctCountry];
+            
+            // 1. Pega outros países do mesmo grupo visual
+            let similarCountries = allCountries.filter(c => c.group === correctCountry.group && c.code !== correctCountry.code);
+            similarCountries = shuffleArray(similarCountries);
+            
+            // 2. Preenche com as similares (até no máximo 3 erros)
+            for (let i = 0; i < similarCountries.length && options.length < 4; i++) {
+                options.push(similarCountries[i]);
+            }
+
+            // 3. Se faltar botão, preenche com países aleatórios
+            while (options.length < 4) {
+                let randomCountry = allCountries[Math.floor(Math.random() * allCountries.length)];
+                if (!options.includes(randomCountry)) {
+                    options.push(randomCountry);
+                }
+            }
+
+            options = shuffleArray(options);
+            correctAnswerIndex = options.indexOf(correctCountry);
+
+            const buttons = document.querySelectorAll('.option-btn');
+            buttons.forEach((btn, index) => {
+                btn.innerText = options[index].name;
+                btn.className = 'option-btn';
+                btn.disabled = false;
+            });
+        }
+
+        function checkAnswer(selectedIndex) {
+            const buttons = document.querySelectorAll('.option-btn');
+            buttons.forEach(btn => btn.disabled = true);
+
+            if (selectedIndex === correctAnswerIndex) {
+                buttons[selectedIndex].classList.add('correct');
+                score++;
+                updateStatsDisplay();
+                
+                setTimeout(() => {
+                    currentQuestion++;
+                    loadNextQuestion();
+                }, 1000);
+            } else {
+                buttons[selectedIndex].classList.add('wrong');
+                buttons[correctAnswerIndex].classList.add('correct');
+                
+                lives--;
+                updateStatsDisplay();
+
+                setTimeout(() => {
+                    if (lives <= 0) {
+                        endGame(false);
+                    } else {
+                        currentQuestion++;
+                        loadNextQuestion();
+                    }
+                }, 1500);
+            }
+        }
+
+        function updateStatsDisplay() {
+            let hearts = "";
+            for (let i = 0; i < lives; i++) hearts += "❤️";
+            for (let i = lives; i < 3; i++) hearts += "🖤";
+            document.getElementById('lives').innerText = hearts;
+            document.getElementById('score-display').innerText = `⭐ ${score}`;
+        }
+
+        function endGame(won) {
+            document.getElementById('game-container').style.display = 'none';
+            document.getElementById('game-over-screen').style.display = 'block';
+            
+            document.getElementById('final-score').innerText = score;
+            document.getElementById('new-record-alert').style.display = 'none'; // Reseta o alerta
+            
+            if (won) {
+                document.getElementById('end-title').innerText = "ZEROU O JOGO!";
+                document.getElementById('end-message').innerText = "Parabéns, você é um mestre da geografia!";
+            } else {
+                document.getElementById('end-title').innerText = "Game Over";
+                document.getElementById('end-message').innerText = `Acabaram as vidas! Você chegou na bandeira ${currentQuestion + 1}.`;
+            }
+
+            saveScore(score);
+        }
+
+        function goToMenu() {
+            document.getElementById('game-over-screen').style.display = 'none';
+            document.getElementById('start-screen').style.display = 'block';
+        }
+
+        function shuffleArray(array) {
+            let currentIndex = array.length, randomIndex;
+            while (currentIndex != 0) {
+                randomIndex = Math.floor(Math.random() * currentIndex);
+                currentIndex--;
+                [array[currentIndex], array[randomIndex]] = [array[randomIndex], array[currentIndex]];
+            }
+            return array;
+        }
+    </script>
+</body>
+</html>
